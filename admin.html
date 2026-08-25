@@ -216,7 +216,12 @@
   function row(label, value) {
     const el = document.createElement('div');
     el.className = 'row';
-    el.innerHTML = `<span>${label}</span><span>${value}</span>`;
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = label;
+    const valueSpan = document.createElement('span');
+    valueSpan.textContent = value;
+    el.appendChild(labelSpan);
+    el.appendChild(valueSpan);
     return el;
   }
 
