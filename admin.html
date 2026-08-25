@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>LinkMyBiz Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f4f6f8;
+    color: #1a1a1a;
+  }
+  header {
+    background: #1D6FE0;
+    color: #fff;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 1.1rem; margin: 0; }
+  header button {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 1rem; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+  .row:last-child { border-bottom: none; }
+  .row span:first-child { color: #555; text-transform: capitalize; }
+  .row span:last-child { font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #1D6FE0;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .export-btn:disabled { opacity: 0.6; cursor: default; }
+  .export-list { display: flex; flex-direction: column; gap: 10px; }
+  .export-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+  .export-row:last-child { border-bottom: none; }
+  .export-row .label { font-size: 0.9rem; }
+  .export-row .status { font-size: 0.8rem; color: #888; margin-left: 8px; }
+
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f6f8;
+  }
+  #login-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 32px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  #login-card h1 { text-align: center; font-size: 1.3rem; margin-bottom: 4px; }
+  #login-card p.sub { text-align: center; color: #777; font-size: 0.85rem; margin-bottom: 20px; }
+  #login-card label { display: block; font-size: 0.85rem; margin-bottom: 4px; margin-top: 12px; font-weight: 600; }
+  #login-card input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+  #login-card button {
+    width: 100%;
+    margin-top: 20px;
+    background: #1D6FE0;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 11px;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  #login-card button:disabled { opacity: 0.6; cursor: default; }
+  #login-error { color: #c0392b; font-size: 0.85rem; margin-top: 12px; text-align: center; min-height: 1em; }
+  .hidden { display: none !important; }
+  .loading-text { color: #888; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div id="login-card">
+    <h1>LinkMyBiz Admin</h1>
+    <p class="sub">Sign in with your admin account</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" placeholder="you@example.com" />
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="Your password" />
+    <button id="login-btn">Sign In</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <h1>LinkMyBiz Admin</h1>
+    <button id="logout-btn">Sign Out</button>
+  </header>
+  <main>
+    <div class="card">
+      <h2>Users</h2>
+      <div id="users-rows" class="loading-text">Loading…</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Business Opportunities</h2>
+        <div id="bo-rows" class="loading-text">Loading…</div>
+      </div>
+      <div class="card">
+        <h2>Looking For Business Listings</h2>
+        <div id="listing-rows" class="loading-text">Loading…</div>
+      </div>
+      <div class="card">
+        <h2>Other Postings</h2>
+        <div id="other-rows" class="loading-text">Loading…</div>
+      </div>
+      <div class="card">
+        <h2>Contact Actions</h2>
+        <div id="contact-rows" class="loading-text">Loading…</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Opportunity Applications</h2>
+      <div id="oa-rows" class="loading-text">Loading…</div>
+    </div>
+
+    <div class="card">
+      <h2>Export Applications</h2>
+      <div id="ea-rows" class="loading-text">Loading…</div>
+    </div>
+
+    <div class="card">
+      <h2>Download Excel Exports</h2>
+      <div class="export-list">
+        <div class="export-row">
+          <span class="label">Users</span>
+          <span><button class="export-btn" data-fn="admin_list_profiles" data-name="users">Download</button><span class="status"></span></span>
+        </div>
+        <div class="export-row">
+          <span class="label">Business Opportunities</span>
+          <span><button class="export-btn" data-fn="admin_list_business_opportunities" data-name="business-opportunities">Download</button><span class="status"></span></span>
+        </div>
+        <div class="export-row">
+          <span class="label">Looking For Business Listings</span>
+          <span><button class="export-btn" data-fn="admin_list_listings" data-name="looking-for-business-listings">Download</button><span class="status"></span></span>
+        </div>
+        <div class="export-row">
+          <span class="label">Startups</span>
+          <span><button class="export-btn" data-fn="admin_list_startups" data-name="startups">Download</button><span class="status"></span></span>
+        </div>
+        <div class="export-row">
+          <span class="label">Export Listings</span>
+          <span><button class="export-btn" data-fn="admin_list_export_listings" data-name="export-listings">Download</button><span class="status"></span></span>
+        </div>
+        <div class="export-row">
+          <span class="label">Opportunity Applications</span>
+          <span><button class="export-btn" data-fn="admin_list_opportunity_applications" data-name="opportunity-applications">Download</button><span class="status"></span></span>
+        </div>
+        <div class="export-row">
+          <span class="label">Export Applications</span>
+          <span><button class="export-btn" data-fn="admin_list_export_applications" data-name="export-applications">Download</button><span class="status"></span></span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://zqoavzasdqysavmnfwud.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_3_mV-NRADHsF6R4TAffS-w_V5Nw_QPg';
+  const ADMIN_EMAIL = 'memanishpurohit@gmail.com';
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const loginScreen = document.getElementById('login-screen');
+  const appScreen = document.getElementById('app');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const loginError = document.getElementById('login-error');
+
+  function row(label, value) {
+    const el = document.createElement('div');
+    el.className = 'row';
+    el.innerHTML = `<span>${label}</span><span>${value}</span>`;
+    return el;
+  }
+
+  function renderRows(containerId, entries) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    if (!entries.length) {
+      container.innerHTML = '<div class="loading-text">No data yet.</div>';
+      return;
+    }
+    entries.forEach(([label, value]) => container.appendChild(row(label, value)));
+  }
+
+  const STATUS_LABELS = {
+    submitted: 'Submitted',
+    reviewed: 'Reviewed',
+    under_consideration: 'Under Consideration',
+    not_considered: 'Not Considered',
+    selected_for_interview: 'Selected for Interview',
+  };
+
+  async function loadDashboard() {
+    const { data, error } = await sb.rpc('admin_get_analytics');
+    if (error) {
+      ['users-rows', 'bo-rows', 'listing-rows', 'other-rows', 'contact-rows', 'oa-rows', 'ea-rows'].forEach((id) => {
+        document.getElementById(id).innerHTML = `<div class="loading-text">Error: ${error.message}</div>`;
+      });
+      return;
+    }
+
+    renderRows('users-rows', [
+      ['Total registered', data.users.total],
+      ['Active (last 30 days)', data.users.active],
+    ]);
+
+    renderRows('bo-rows', data.postings.business_opportunities_by_type.map((r) => [r.opportunity_type, r.count]));
+    renderRows('listing-rows', data.postings.listings_by_category.map((r) => [r.category, r.count]));
+    renderRows('other-rows', [
+      ['Startups', data.postings.startups_count],
+      ['Investor profiles', data.postings.investor_profiles_count],
+      ['Export listings', data.postings.export_listings_count],
+    ]);
+    renderRows('contact-rows', [
+      ['Calls tapped', data.contact_events.calls],
+      ['Emails tapped', data.contact_events.emails],
+    ]);
+    renderRows(
+      'oa-rows',
+      data.applications.opportunity_applications_by_status.map((r) => [STATUS_LABELS[r.status] || r.status, r.count])
+    );
+    renderRows(
+      'ea-rows',
+      data.applications.export_applications_by_status.map((r) => [STATUS_LABELS[r.status] || r.status, r.count])
+    );
+  }
+
+  function downloadExcel(rows, filename) {
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
+    XLSX.writeFile(workbook, `${filename}.xlsx`);
+  }
+
+  document.querySelectorAll('.export-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const fn = btn.getAttribute('data-fn');
+      const name = btn.getAttribute('data-name');
+      const statusEl = btn.nextElementSibling;
+      btn.disabled = true;
+      statusEl.textContent = 'Fetching…';
+      const { data, error } = await sb.rpc(fn);
+      if (error) {
+        statusEl.textContent = `Error: ${error.message}`;
+        btn.disabled = false;
+        return;
+      }
+      if (!data || !data.length) {
+        statusEl.textContent = 'No rows to export.';
+        btn.disabled = false;
+        return;
+      }
+      downloadExcel(data, `linkmybiz-${name}`);
+      statusEl.textContent = `Downloaded (${data.length} rows).`;
+      btn.disabled = false;
+    });
+  });
+
+  async function showApp() {
+    loginScreen.classList.add('hidden');
+    appScreen.classList.remove('hidden');
+    await loadDashboard();
+  }
+
+  function showLogin(message) {
+    appScreen.classList.add('hidden');
+    loginScreen.classList.remove('hidden');
+    loginError.textContent = message || '';
+  }
+
+  loginBtn.addEventListener('click', async () => {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    if (!email || !password) {
+      loginError.textContent = 'Enter your email and password.';
+      return;
+    }
+    loginBtn.disabled = true;
+    loginError.textContent = '';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    loginBtn.disabled = false;
+    if (error) {
+      loginError.textContent = error.message;
+      return;
+    }
+    if (data.user.email !== ADMIN_EMAIL) {
+      loginError.textContent = 'This account is not authorized for the admin panel.';
+      await sb.auth.signOut();
+      return;
+    }
+    showApp();
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await sb.auth.signOut();
+    showLogin();
+  });
+
+  document.getElementById('password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loginBtn.click();
+  });
+
+  // Restore an existing session on reload.
+  sb.auth.getSession().then(({ data }) => {
+    if (data.session && data.session.user.email === ADMIN_EMAIL) {
+      showApp();
+    }
+  });
+</script>
+
+</body>
+</html>
